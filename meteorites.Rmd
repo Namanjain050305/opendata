@@ -1,1 +1,51 @@
+---
+title: "meteorites"
+output: html_document
+---
 
+```{r setup, include=FALSE, echo=FALSE, message=FALSE}
+library(formattable)
+library(gridExtra)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(readr)
+library(leaflet)
+library(leaflet.extras)
+```
+
+```{r read}
+df <- read_csv("meteorites.csv")
+```
+
+```{r cleaning}
+df <- df %>% 
+filter(year>=860 & year<=2016) %>% # filter out weird years 
+filter(reclong<=180 & reclong>=-180 & (reclat!=0 | reclong!=0)) # filter out weird locations
+```
+
+```{r}
+summary(df$mass)
+```
+
+
+```{r classification}
+df10 <- df %>% #left_join(points, by = c("reclat", "reclong")) %>%
+  arrange(desc(mass)) %>% 
+  select(-c(id, GeoLocation)) %>%
+  #mutate(class=ifelse(grepl("L/LL",recclass),"L/LL",recclass)) %>%
+  mutate(class=sapply(strsplit(recclass, ","), "[", 1))%>%
+  mutate(class = sub("[^[:alpha:]]+", "", class)) %>%
+  mutate(class = ifelse(grepl("LLL",class),"L/LL",class)) %>%
+  mutate(group =  ifelse(grepl("Mesosiderite",class)|grepl("Pallasite",class),"Mixture",
+                         ifelse(grepl("Iron",class), "Iron","Stony")))
+write.csv(df10, 'df10.csv')
+#customized scatter in tableau and transparent background with http://www194.lunapic.com/editor/
+```
+
+```{r heatmap}
+library(rgdal)
+df10 %>% leaflet() %>%
+  addProviderTiles("CartoDB.Positron") %>%
+  addHeatmap(lng=~reclong, lat=~reclat, radius=8)
+```
